@@ -94,25 +94,18 @@ def phase_voltage(switchA, switchB, switchC, controller_output):
 
 # ----------------------------- Trapezoidal back-EMF shape -----------------------------
 def trap_120(theta_deg):
-    # Returns trapezoidal waveform value f(theta) for 120-degree conduction BLDC.
-    # Output is in [-1, +1] and represents normalized back-EMF shape:
-    # E_phase = K_e * omega * f(theta)
-    #
-    # Piecewise trapezoid over electrical angle (deg).
-    th = theta_deg % 360.0
+    th = theta_deg % 360.0   # <-- ADD THIS WRAP
 
-    if 0 <= th < 60:
-        return th / 60.0                 # ramp up 0 -> +1
-    elif 60 <= th < 180:
-        return 1.0                       # flat at +1
-    elif 180 <= th < 240:
-        return 1.0 - (th - 180) / 60.0   # ramp down +1 -> 0
-    elif 240 <= th < 300:
-        return -(th - 240) / 60.0        # ramp down 0 -> -1
+    if 0.0 <= th < 60.0:
+        return -1.0 + 2.0*(th/60.0)
+    elif 60.0 <= th < 180.0:
+        return 1.0
+    elif 180.0 <= th < 240.0:
+        return 1.0 - 2.0*((th-180.0)/60.0)
     else:
-        return -1.0                      # flat at -1
+        return -1.0
 
-def inverter(elec_angle):
+def inverter(elec_angle,controller_output):
     # Commutation logic (6-step / 120° conduction).
     # Each 60° electrical sector picks which phase is high (+), which is low (-), and which floats (0).
     #
@@ -229,7 +222,7 @@ def mechanical_dynamics(Torque_motor, omega_rps):
 
     # Wrap to [-pi, +pi) to keep angle bounded and avoid numeric growth:
     # theta_wrapped = ((theta + pi) mod 2pi) - pi
-    theta_e = (theta_e + math.pi) % (2 * math.pi) - math.pi
+    theta_e = theta_e % (2 * math.pi)
 
     return omega_rps, theta_e
 
@@ -270,7 +263,7 @@ while t < sim_time:
     controller_output = pid_controller(omega_rps_ref, omega_rps)
 
     # Commutation based on electrical angle
-    switchA, switchB, switchC = inverter(elec_angle)
+    switchA, switchB, switchC = inverter(elec_angle,controller_output)
 
     # Convert commutation + duty to phase voltages
     Va, Vb, Vc = phase_voltage(switchA, switchB, switchC, controller_output)
